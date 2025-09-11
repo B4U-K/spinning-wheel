@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Page Title -->
   <title>Festive Offer @ B4 Unisex Salon</title>
+
   <!-- Social Sharing Meta Tags -->
   <meta property="og:title" content="Festive Offer @ B4 Unisex Salon" />
   <meta property="og:description" content="Spin the wheel and grab your discount today!" />
@@ -32,11 +35,9 @@
     .center-box:hover{transform:translate(-50%,-50%) scale(1.05);}
     .center-text{color:#fff;font-weight:700;text-align:center;padding:10px;font-size:16px;animation:glow 1.5s infinite alternate;}
     @keyframes glow{from{text-shadow:0 0 5px #fff,0 0 10px #ff00de} to{text-shadow:0 0 10px #fff,0 0 20px #00eaff}}
-    .star{
-      position:absolute;width:12px;height:12px;background:yellow;
+    .star{position:absolute;width:12px;height:12px;background:yellow;
       clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
-      animation:burst 1s ease-out forwards;z-index:20;
-    }
+      animation:burst 1s ease-out forwards;z-index:20;}
     @keyframes burst{0%{transform:translate(0,0) scale(.5);opacity:1}100%{transform:translate(var(--x),var(--y)) scale(1.5);opacity:0}}
   </style>
 </head>
@@ -48,14 +49,12 @@
   </div>
 
 <script>
-/* ------- setup ------- */
 const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
 const pointer = document.getElementById('pointer');
 const centerBox = document.getElementById('center-box');
 const centerText = document.getElementById('center-text');
 
-/* slices */
 const discounts = [
   "5%", "10%", "15%", "20%", "25%", "30%",
   "35%", "40%", "45%", "50%", "60%", "70%"
@@ -65,11 +64,8 @@ const validDiscounts = new Set(["5%","10%","15%","20%","25%","30%"]);
 const radius = canvas.width/2;
 const numSegments = discounts.length;
 const anglePerSegment = (2*Math.PI)/numSegments;
-
-/* base rotation so segment 0 center is at pointer when angle=0 */
 const baseRotation = -Math.PI/2 - anglePerSegment/2;
 
-/* drawing */
 function drawWheel(){
   for(let i=0;i<numSegments;i++){
     const start = i*anglePerSegment;
@@ -84,7 +80,6 @@ function drawWheel(){
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // label
     ctx.save();
     ctx.translate(radius,radius);
     ctx.rotate(start + anglePerSegment/2);
@@ -96,7 +91,6 @@ function drawWheel(){
   }
 }
 
-/* initial draw with optional rotation angle */
 function initialDraw(angle = 0){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
@@ -108,74 +102,32 @@ function initialDraw(angle = 0){
 }
 initialDraw();
 
-/* animation state */
-let spinning = false;
-let startTime = null;
-let duration = 4200; // ms
-let finalAngle = 0; // target rotation to animate to
-let targetIndex = null;
-
-/* starburst */
-function createStars(){
-  for(let i=0;i<12;i++){
-    const s = document.createElement('div');
-    s.className = 'star';
-    const angle = Math.random()*Math.PI*2;
-    const dist = 60 + Math.random()*60;
-    s.style.setProperty('--x', `${Math.cos(angle)*dist}px`);
-    s.style.setProperty('--y', `${Math.sin(angle)*dist}px`);
-    centerBox.appendChild(s);
-    setTimeout(()=> s.remove(), 1000);
-  }
-}
-
-/* ease-out cubic */
-function easeOutCubic(t){ return 1 - Math.pow(1-t,3); }
-
-/* spinner frame */
+/* animation */
+let spinning=false,startTime=null,duration=4200,finalAngle=0,targetIndex=null;
+function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+function createStars(){for(let i=0;i<12;i++){const s=document.createElement('div');s.className='star';
+  const ang=Math.random()*Math.PI*2,dist=60+Math.random()*60;
+  s.style.setProperty('--x',`${Math.cos(ang)*dist}px`);
+  s.style.setProperty('--y',`${Math.sin(ang)*dist}px`);
+  centerBox.appendChild(s);setTimeout(()=>s.remove(),1000);}}
 function animateSpin(ts){
-  if (!startTime) startTime = ts;
-  const elapsed = ts - startTime;
-  const progress = Math.min(elapsed/duration, 1);
-  const eased = easeOutCubic(progress);
-  const currentAngle = finalAngle * eased; // angle passed into initialDraw
-
+  if(!startTime) startTime=ts;
+  const elapsed=ts-startTime,progress=Math.min(elapsed/duration,1);
+  const eased=easeOutCubic(progress);
+  const currentAngle=finalAngle*eased;
   initialDraw(currentAngle);
-
-  if (progress < 1){
-    requestAnimationFrame(animateSpin);
-    return;
-  }
-
-  // ended
-  spinning = false;
-  pointer.classList.add('winner');
-  const discount = discounts[targetIndex];
-  centerText.innerText = `You Won: ${discount} Discount 🎉`;
-  createStars();
-}
-
-/* click handler: choose a valid slice and compute finalAngle so it lands exactly under pointer */
-/* IMPORTANT: to align segment k, use finalAngle = totalSpins*2π - k*anglePerSegment */
-centerBox.addEventListener('click', ()=>{
-  if (spinning) return;
-  spinning = true;
-  pointer.classList.remove('winner');
-  centerText.innerText = 'B4 Unisex Salon';
-
-  // pick random index only among valid discounts
-  const validIndexes = discounts.map((d,i)=> validDiscounts.has(d)? i : null).filter(i=>i!==null);
-  targetIndex = validIndexes[Math.floor(Math.random()*validIndexes.length)];
-
-  // compute angle: many full spins minus offset so chosen slice center ends at top pointer
-  const extraSpins = Math.floor(Math.random()*3) + 5; // 5-7 full spins
-  finalAngle = extraSpins * 2 * Math.PI - targetIndex * anglePerSegment;
-
-  // reset animation state
-  startTime = null;
-  requestAnimationFrame(animateSpin);
+  if(progress<1){requestAnimationFrame(animateSpin);return;}
+  spinning=false;pointer.classList.add('winner');
+  const discount=discounts[targetIndex];
+  centerText.innerText=`You Won: ${discount} Discount 🎉`;createStars();}
+centerBox.addEventListener('click',()=>{
+  if(spinning)return;spinning=true;pointer.classList.remove('winner');centerText.innerText='B4 Unisex Salon';
+  const validIndexes=discounts.map((d,i)=>validDiscounts.has(d)?i:null).filter(i=>i!==null);
+  targetIndex=validIndexes[Math.floor(Math.random()*validIndexes.length)];
+  const extraSpins=Math.floor(Math.random()*3)+5;
+  finalAngle=extraSpins*2*Math.PI - targetIndex*anglePerSegment;
+  startTime=null;requestAnimationFrame(animateSpin);
 });
 </script>
 </body>
 </html>
-
