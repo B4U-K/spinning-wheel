@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spinning Wheel</title>
+  <style>
+    /* ===== Page background ===== */
+    body {
+      margin: 0;
+      height: 100vh;
+      background: #222 url('background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      position: relative;
+      font-family: Arial, sans-serif;
+    }
+
+    /* ===== Wheel container (whole widget) ===== */
+    .wheel-container {
+      position: absolute;
+      width: 420px;
+      height: 420px;
+
+      /* 🔹 EDIT THESE TO PLACE WHEEL ANYWHERE */
+      /* Example: */
+      top: 30%;      /* distance from top */
+      left: 50%;     /* distance from left */
+      bottom: 40%; */  /* use instead of top */
+      right: 15%;   */  /* use instead of left */
+
+      /* If you want exact center: */
+      transform: translate(-50%, -50%);
+    }
+
+    /* ===== Wheel itself ===== */
+    canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    }
+
+    /* ===== Pointer (red triangle) ===== */
+    .pointer {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 18px solid transparent;
+      border-right: 18px solid transparent;
+      border-bottom: 28px solid red;
+      z-index: 10;
+      transform: translate(-50%, -50%); /* always upright */
+    }
+    .pointer.winner {
+      border-bottom-color: green;
+    }
+
+    /* ===== Center button ===== */
+    .center-box {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: #008000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5),
+                  0 0 30px #00ff88,
+                  0 0 60px #00ff88;
+      transition: transform 0.18s ease;
+    }
+    .center-box:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+    .center-text {
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+      padding: 10px;
+      font-size: 16px;
+      animation: glow 1.5s infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 5px #fff, 0 0 10px #ff00de }
+      to   { text-shadow: 0 0 10px #fff, 0 0 20px #00eaff }
+    }
+  </style>
+</head>
+<body>
+  <div class="wheel-container">
+    <div class="pointer" id="pointer"></div>
+    <canvas id="wheel" width="420" height="420"></canvas>
+    <div class="center-box" id="center-box">
+      <span class="center-text" id="center-text">Spin Me!</span>
+    </div>
+  </div>
+
+<script>
+/* ==================== SETUP ==================== */
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const pointer = document.getElementById('pointer');
+const centerBox = document.getElementById('center-box');
+const centerText = document.getElementById('center-text');
+
+/* Discounts on the wheel */
+const discounts = ["5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "60%", "70%"];
+const validDiscounts = new Set(["5%","10%","15%","20%","25%","30%"]);
+
+const radius = canvas.width / 2;
+const numSegments = discounts.length;
+const anglePerSegment = (2 * Math.PI) / numSegments;
+
+/* ==================== POINTER POSITION ==================== */
+/* 🔹 EDIT THESE TO PLACE POINTER INSIDE WHEEL */
+const pointerXPercent = 50;  // 0 = left edge, 50 = center, 100 = right edge
+const pointerYPercent = 0;   // 0 = top, 50 = middle, 100 = bottom
+
+pointer.style.left = pointerXPercent + "%";
+pointer.style.top = pointerYPercent + "%";
+pointer.style.transform = "translate(-50%,-50%)"; // keep upright
+
+/* Calculate angle from wheel center to pointer */
+const pointerX = (pointerXPercent / 100) * canvas.width;
+const pointerY = (pointerYPercent / 100) * canvas.height;
+const dx = pointerX - radius;
+const dy = pointerY - radius;
+let pointerAngle = Math.atan2(dy, dx);
+
+/* Shift rotation so segments line up with pointer */
+const baseRotation = pointerAngle - anglePerSegment / 2;
+
+/* ==================== WHEEL DRAW ==================== */
+function drawWheel() {
+  for (let i = 0; i < numSegments; i++) {
+    const start = i * anglePerSegment;
+    const end = start + anglePerSegment;
+
+    ctx.beginPath();
+    ctx.moveTo(radius, radius);
+    ctx.arc(radius, radius, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = `hsl(${i * 30}, 70%, 60%)`;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // labels
+    ctx.save();
+    ctx.translate(radius, radius);
+    ctx.rotate(start + anglePerSegment / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText(discounts[i], radius - 12, 8);
+    ctx.restore();
+  }
+}
+
+/* Redraw with rotation */
+function initialDraw(angle = 0) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(radius, radius);
+  ctx.rotate(baseRotation + angle);
+  ctx.translate(-radius, -radius);
+  drawWheel();
+  ctx.restore();
+}
+initialDraw();
+
+/* ==================== SPIN ANIMATION ==================== */
+let spinning = false;
+let startTime = null;
+let duration = 4200;
+let finalAngle = 0;
+let targetIndex = null;
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function animateSpin(ts) {
+  if (!startTime) startTime = ts;
+  const elapsed = ts - startTime;
+  const progress = Math.min(elapsed / duration, 1);
+  const eased = easeOutCubic(progress);
+  const currentAngle = finalAngle * eased;
+
+  initialDraw(currentAngle);
+
+  if (progress < 1) {
+    requestAnimationFrame(animateSpin);
+    return;
+  }
+
+  // spin ended
+  spinning = false;
+  pointer.classList.add('winner');
+  const discount = discounts[targetIndex];
+  centerText.innerText = `You Won: ${discount} Discount 🎉`;
+}
+
+/* ==================== CLICK TO SPIN ==================== */
+centerBox.addEventListener('click', () => {
+  if (spinning) return;
+  spinning = true;
+  pointer.classList.remove('winner');
+  centerText.innerText = 'Spinning...';
+
+  // pick random valid discount
+  const validIndexes = discounts.map((d, i) => validDiscounts.has(d) ? i : null).filter(i => i !== null);
+  targetIndex = validIndexes[Math.floor(Math.random() * validIndexes.length)];
+
+  // calculate spin angle
+  const extraSpins = Math.floor(Math.random() * 3) + 5; // 5–7 full spins
+  finalAngle = extraSpins * 2 * Math.PI - targetIndex * anglePerSegment;
+
+  startTime = null;
+  requestAnimationFrame(animateSpin);
+});
+</script>
+</body>
+</html>
+
